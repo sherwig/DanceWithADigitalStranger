@@ -3,7 +3,19 @@
 #include "ofMain.h"
 #include "ofxCv.h"
 #include "ofxKinect.h"
+#include "ofxOsc.h"
 #include <vector>
+
+
+//#define HOST "localhost"
+//#define HOST "10.0.0.144" //pc
+//#define HOST "10.0.0.213"
+
+/// send port
+//#define PORT 14747
+//#define PORT2 9008
+
+#define NUM_MSG_STRINGS 20
 
 class ofApp : public ofBaseApp {
 public:
@@ -12,6 +24,7 @@ public:
     void draw();
     void exit();
     float accel2(float speedVal);
+    void FileWrite();
     void drawShapes();
     
     void drawInstructions();
@@ -53,6 +66,7 @@ public:
     ofColor col3;
     ofColor col4;
     ofColor col5;
+    ofColor colCos;
     ofVec3f p2;
     ofMatrix4x4 m;
     
@@ -62,7 +76,7 @@ public:
     
     int minDistance;
     
-    std::vector <ofVec2f> vec;
+    std::vector <ofVec3f> vec;
     std::vector <ofVec2f> vecCopy;
     vector <ofVec3f> offsets;
     
@@ -100,6 +114,7 @@ public:
     
     int nextIndexToWrite;
     int nextIndexToWrite2;
+    int nextIndexToWrite3;
     
     vector<vector<ofVec3f>> mat;
     
@@ -111,5 +126,41 @@ public:
     ofTrueTypeFont ttf;
     ofPath path;
     std::string text;
+    
+    ofxOscSender sender;
+    ofxOscReceiver receiver; 
+    
+    float pointSize;
+    float sinConnectionDistance;
+    float scaleMesh;
+    float meshMode;
+    
+    float tempArea;
+    int tempSize;
+    ofVec3f tempReciever;
+    
+    vector<ofVec3f> sendVec;
+    
+    float tempScale;
+    
+    
+    int thresh1;
+    int thresh2;
+    int thresh3;
+    int thresh4;
+    int thresh5;
+    
+    
+    int colThresh1;
+    int colThresh2;
+    int colThresh3;
+    int colThresh4;
+    int colThresh5;
+    
+    
+    int mainThresh1;
+    int mainThresh2;
+    
+    
     
 };

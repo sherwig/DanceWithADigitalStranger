@@ -25,8 +25,8 @@ void ofApp::setup() {
     }
     
     // Thresholds for kinect.
-    nearThreshold = 255; //230;
-    farThreshold = 220; //70;
+    nearThreshold = 280; //230; //255
+    farThreshold = 190; //70;
     
     // Zero the tilt on startup
     //angle = 0;
@@ -37,12 +37,12 @@ void ofApp::setup() {
     clearStuff=false;
     rotating=false;
     
+//
+//    col.r=0;
+//    col.g=255;
+//    col.b=0;
     
-    col.r=0;
-    col.g=255;
-    col.b=0;
-    
-    float accelh=1;
+    //float accelh=1;
     
     // Allocate images
     colorImg.allocate(kinect.width, kinect.height, OF_IMAGE_COLOR);
@@ -52,12 +52,14 @@ void ofApp::setup() {
     grayPreprocImage.allocate(kinect.width, kinect.height, OF_IMAGE_GRAYSCALE);
 
     contourFinder.setFindHoles(false);
+  
+    //contourFinder.setSimplify(true);
     
-    ofSetFrameRate(30);
+    ofSetFrameRate(60);
     showLabels = true;
     
-    contourFinder.setMinAreaRadius(1);
-    contourFinder.setMaxAreaRadius(300);
+    contourFinder.setMinAreaRadius(60);
+    contourFinder.setMaxAreaRadius(600);
     contourFinder.setThreshold(205);
     // wait for half a second before forgetting something
     contourFinder.getTracker().setPersistence(100);
@@ -66,52 +68,82 @@ void ofApp::setup() {
     
     minDistance=10;
     
-    //Just using a easy cam right now
-//    camera.setFov(60);
-//    cameraX=0;
-//    cameraY=-25;
-//    cameraZ=0;
+    thresh1=800;
+    thresh2=900;
+    thresh3=1000;
+    thresh4=1200;
+    thresh5=1400;
     
-    ofSetBackgroundColor(255);
-    ttf.load("mono.ttf", 8);
-    path.setStrokeColor(0);
-    path.setFilled(false);
-    path.setStrokeWidth(1);
-    
-    ofFile file("drawing copy.json");
-    if(file.exists()){
-        file >> js;
-        for(auto & stroke: js){
-            if(!stroke.empty()){
-                path.moveTo(stroke[0]["x"],stroke[0]["y"],stroke[0]["z"]);
-                for(auto & p: stroke){
-                    path.lineTo(p["x"], p["y"], p["z"]);
-                }
-            }
-        }
-        
-       // calculateText();
-    }
+    colThresh1=400;
+    colThresh2=1000;
+    colThresh3=1200;
+    colThresh4=1400;
+    colThresh5=colThresh3-100;
     
     
+     mainThresh1=400;
+     mainThresh2=1400;
+    
+    
+    ofSetVerticalSync(true);
+    
+    // open an outgoing connection to HOST:PORT
+   
+//    sender.setup("10.0.0.213", 8888); // This is an arbitrary port number.
+//
+//    receiver.setup(8888); // You can use the same port, as we just saw.
+//   //receiver.setup(PORT);
+
+    //const std::string IP_OF_A = "192.168.1.3";//NightHawk
+    
+    const std::string IP_OF_A = "10.0.0.213";
+  
+    const uint16_t RECEIVING_PORT_ON_A = 8888;
+    const uint16_t RECEIVING_PORT_ON_B = 8888;
+    
+    // Uncomment for machine A
+    //    sender.setup(IP_OF_B, RECEIVING_PORT_ON_B);
+    //    receiver.setup(RECEIVING_PORT_ON_A);
+    //
+    //        // Uncomment for machine B
+  
+    sender.setup(IP_OF_A, RECEIVING_PORT_ON_A);
+    receiver.setup(RECEIVING_PORT_ON_B);
+   
 }
-//ofSetFrameRate(60);
+
 
 
 
 //--------------------------------------------------------------
 void ofApp::update()
 {
+    
+ 
     float time= ofGetElapsedTimef();
-    for(int i=0; i<1000; i++)
+    
+    for(int i=0; i<2000; i++)
+    {
+       meshMode=20+20*sin(i+time);
+    }
+    
+    for(int i=0; i<2000; i++)
     {
         //ofSetColor(127+127*sin(i*.01+time),127+127*sin(i*.012+time),127+127*sin(i*.014+time));
         //pathFromContour.setFillColor(127+127*sin(i*.01+time),127+127*sin(i*.012+time),127+127*sin(i*.014+time));
-        
+        pointSize = 10+10*sin(i+time);
+        scaleMesh=3+3*sin(i+time);
+        sinConnectionDistance=20+20*sin(i+time);
+  
+        //cout<<pointSize<<endl;
         //Color for the person on offset sin curves.
                 col.r = 127+127*2*sin(i*.01+time);
                 col.g = 127+127*sin(i*.012+time);
                 col.b = 127+127*sin(i*.014+time);
+       
+                colCos.r = 127+127*2*cos(i*.01+time);
+                colCos.g = 127+127*cos(i*.012+time);
+                colCos.b = 127+127*cos(i*.014+time);
         
         
                 col2.r = 127+127*2*sin(i*.017+time);
@@ -130,7 +162,7 @@ void ofApp::update()
                 col5.g = 127+127*sin(i*.09+time);
                 col5.b = 127+127*sin(i*.013+time);
         
-        
+       
         
     }
     
@@ -161,20 +193,123 @@ void ofApp::update()
         grayPreprocImage = grayImage;
         
         // Process image
-        dilate(grayImage);
-        dilate(grayImage);
+        dilate(grayImage,5);
+       // dilate(grayImage);
         
-        erode(grayImage);
+        erode(grayImage,5);
+      //  erode(grayImage);
         
         // Mark image as changed
         grayImage.update();
 
         contourFinder.findContours(grayImage);
+        
+//        ofxOscMessage m;
+//        m.setAddress("Here");
+//        m.addStringArg("taint");
+//        sender.sendMessage(m);
+        
+        
+//        for (int i=0; i<sendVec.size(); i++)
+//        {
+//                ofxOscMessage m;
+//                m.setAddress("Point");
+//                m.addFloatArg(sendVec[i].x);
+//                m.addFloatArg(sendVec[i].y);
+//                m.addFloatArg(sendVec[i].z);
+//                cout<<sendVec[i]<<endl;
+//                sender.sendMessage(m, false); // why set to false?
+//
+//        }
+        
+        
+        for(int i=0; i<contourFinder.size();i++)
+        {
+            float area= contourFinder.getContourArea(i);
+            ofxOscMessage m;
+            m.setAddress("Area,size");
+            m.addFloatArg(area);
+            m.addFloatArg(contourFinder.size());
+            sender.sendMessage(m, false);
+            
+            //cout<<m<<endl;pb
+            //cout<< contourFinder.getContourArea(i)<<endl;
+            
+            //ofPoint average=contourFinder.getAverage(i);
+            // cout<<average<<endl;
+        }
+        
     }
     
-    
-    
-    
+    while(receiver.hasWaitingMessages())
+    {
+        //cout<<"here"<<endl; // you should see this anytime a message is received.
+        
+       // cout<<"Here"<<endl;
+        
+        // get the next message
+        ofxOscMessage m;
+        receiver.getNextMessage(m); // the change here was just to a more modern method signature.
+        
+        
+//        if (m.getAddress() == "Here")
+//        {
+        
+//            string here=m.getArgAsString(0);
+        
+        //cout << "Got message from " << m.getRemoteHost() << ":" << m.getRemotePort() << m.getArgAsString(0) << endl;
+        
+        //cout<<here<<endl;
+        
+     //   }
+        
+        //        {
+//        //Drawing goodness
+        if (m.getAddress() == "Point")
+       {
+           // cout<<m<<endl;
+        //}
+//
+            tempReciever.x=m.getArgAsFloat(0);
+            tempReciever.y=m.getArgAsFloat(1);
+            tempReciever.z=m.getArgAsFloat(2);
+        
+           //  cout<<tempReciever.z<<endl;
+//
+//
+           // cout<<tempReciever<<endl;
+           const std::size_t MAX_BUFFER_SIZE3 = 100;
+           
+           // This section fills the buffer.
+           if (storage.size() < MAX_BUFFER_SIZE3)
+           {
+               storage.push_back(tempReciever);
+               
+               nextIndexToWrite3 = storage.size();
+           }
+           
+           else // This section reuses positions once it is full.
+           {
+               storage[nextIndexToWrite3] = tempReciever;
+           }
+           
+           // This section figures out the next write index and
+           nextIndexToWrite3 = (nextIndexToWrite3 + 1) % MAX_BUFFER_SIZE3;
+      }
+
+        if( m.getAddress()=="Area,size")
+        {
+            tempArea=m.getArgAsFloat(0);
+            tempSize=m.getArgAsInt(1);
+          
+          //  tempArea=ofClamp(tempArea,2000,7000);
+            tempArea=ofMap(tempArea,2000,100000,0,7);
+            tempScale=ofMap(tempArea,0,7,.5,3);
+              //  cout<<tempArea<<endl;
+          
+        }
+        
+    }
     
     
 
@@ -183,165 +318,50 @@ void ofApp::update()
 //--------------------------------------------------------------
 void ofApp::draw(){
     ofSetColor(255, 255, 255);
+   
     RectTracker& tracker = contourFinder.getTracker();
     
     easyCam.begin();
     //camera.begin();
     
     //Drawing the person.
-   
-    //drawPointCloud();
-   
-    drawShapes();
+    ofScale(tempScale,tempScale,tempScale);
+    drawPointCloud();
     
-    //    ofColor centerColor = ofColor(85, 78, 68);
-    //    ofColor edgeColor(0, 0, 0);
-    //    ofBackgroundGradient(centerColor, edgeColor, OF_GRADIENT_CIRCULAR);
-    //if(drawBackground)
-    //{
-    //
-    //
-    
+    //ofScale(1,-1,-1);
     //contourFinder.draw();
     
-    //}
-
-//            if (vecCopy.empty())
-//            {
-//                vecCopy.clear();
-//                vecCopy.push_back(ofVec3f(0,0,0));
-//                cout<<vecCopy.size()<<endl;
-//            }
-//
-//            else
-//            {
-//                for (int j=0; j<Numb_delete2; j++)
-//                {
-//                    vecCopy.erase(vecCopy.begin());
-//                }
-//            }
-
-               // center = toOf(contourFinder.getCenter(i));
-        
-        
-        //Here is the problem child. Right now I am just trying to transfer over the vector values from the original vec to the vecCopy that I will use to draw at a later time. I want to focus on this firtly and then worry about the time aspect later.
-        //If you comment all of this out the sketch runs fine jsut like how I showed you after class.
-        
-//        for(int j=vecCopy.size()-1; j<numb_shapes; j++)
-//                {
-//                    //Basically adapting the code from above for filling the vector.
-//
-//                    if (vecCopy.size()<vec.size())//Not sure if this will work.
-//                    {
-//                        vecCopy.push_back(vec[j]);//push back the vector values into the vec copy.
-//                        cout<<vecCopy.size()<<endl;//see if it is getting filled.
-//                    }
-//
-//                    else//so if VecCopy is as large as the vec then it will delete off the front but not sure if this will work either.
-//                    {
-//                        for (int i=0; i<Numb_delete2; i++)
-//                        {
-//                            vecCopy.erase(vecCopy.begin());
-//
-//                        }
-//                    }
-//
-//                    //Set size of vector array have a current index instead of vector overwriting existing value
-//                    //need to iterate background until index -- go through full index
+   // ofScale(3,3,3);
+   
+    ofTranslate(0,500,500);
+  
+    drawShapes();
     
-//                    if (vecCopy.size()>4)//Go through and draw the copied vector
-//                    {
-//                        for (int r=0; r<vecCopy.size()-4; r++)
-//                        {
-//                            //using the same styling from before.
-//                            ofNoFill();
-//                            int k=vec.size()-1;
-//                            float value=255.0/max(vec[k].x,vec[k].y);
-//                            //ofSetColor(uint8(value*vec[k].x), uint8(value*vec[k].y),uint8(value*vec[k].z)); //Rainbow
-//                            //ofSetColor(uint8(value*vec[k].x), ofRandom(0,100),0); //RED
-//                            ofSetColor(ofRandom(0,255), uint8(value*vec[k].y),uint8(value*vec[k].x)); //Blue
-//
-//                            //Translate it up 300 so I can see the difference.
-//                            ofTranslate(0,300,0);
-//                            //Draw the vec copy the same way.
-//                            ofDrawTriangle(vecCopy[r].x,vecCopy[r].y,200,vecCopy[(r+1)].x,vecCopy[(r+1)].y,300, vecCopy[(r+2)].x,vecCopy[(r+2)].y,100);
-//
-//                        }
-//
-//                   }
-//                }
-//
 
      easyCam.end();
     
 }
 
-void ofApp::calculateText(){
-    auto total = js;
-    if(!stroke.empty()){
-        total.push_back(stroke);
-    }
-    size_t numlines = ofGetHeight() / ttf.getLineHeight();
-    auto lines = ofSplitString(total.dump(2), "\n");
-    std::vector<std::string> screenlines(lines.end() - std::min(lines.size(), numlines), lines.end());
-    text = ofJoinString(screenlines, "\n");
-}
 
 void ofApp::drawShapes()
 {
      int counter=0;
     //boolean that is mapped to the b button to draw the triangles.
-    if (drawStuff)
-    {
-        //setting number of shapes that I am going to fill my array with and the number that I will be deleting from the front of the vector.
-//        int numb_shapes=500;
-//        int Numb_delete=10;
-//
-//        if (vec.empty())
-//        {
-//            vec.clear();
-//            vec.push_back(ofVec3f(0,0,0));
-//            counter=0;
-//        }
-//        else
-//        {
-//              counter++;
-////            while(counter<=numb_shapes)
-////            {
-//                counter++;
-//                if(counter==numb_shapes)
-//                {
-//                    counter=0;
-//                }
-//                ofPoint center = toOf(contourFinder.getCenter(counter));
-//                //go through and push back to the vector based on the center of the contour. This only works well really with one person in the frame, which I might need to go through and update later on.
-//                    ofVec2f temp_pos;
-//                    temp_pos.x=center.x;
-//                    temp_pos.y=center.y;
-//                    vec.push_back(temp_pos);
-//             }
-        //}
-        
-        
-       // glm::vec2 position = getPosition();
-       
-//
-//        for (int i=0; i<10; i++)
-//        {
-//           for (int j=0; j<1;j++)
-//           {
-        
-          //  ofTranslate(0,200);
+  if (drawStuff)
+  {
+
             ofPoint center = toOf(contourFinder.getCenter(counter));
             //go through and push back to the vector based on the center of the contour. This only works well really with one person in the frame, which I might need to go through and update later on.
-                ofVec2f temp_pos;
+                ofVec3f temp_pos;
                 temp_pos.x=center.x;
                 temp_pos.y=center.y;
-                //vec.push_back(temp_pos);
+                temp_pos.z=kinect.getDistanceAt(center.x, center.y);
+                temp_pos.z=ofClamp(temp_pos.z,800,1400);
+                //cout<<"this comp"<<temp_pos.z<<endl;
+      
+      //vec.push_back(temp_pos);
             
             const std::size_t MAX_BUFFER_SIZE = 100;
-            
-        
         
             // This section fills the buffer.
             if (vec.size() < MAX_BUFFER_SIZE)
@@ -359,39 +379,15 @@ void ofApp::drawShapes()
             // This section figures out the next write index and
             nextIndexToWrite = (nextIndexToWrite + 1) % MAX_BUFFER_SIZE;
        
-        //fill 10 vectors you are trying to fill 10 matrix spots with 1 vector that is filled currently
-             
-            //}
-
-                 //mat[i].push_back(vec);
-//
-       //}
-
-        //cout<<vec.size()<<endl;
-        //cout<<counter<<endl;
+      
+  
+      
+    //  cout<<storage.size()<<endl;
+      //storage.push_back(tempReciever);
+      
+      ofTranslate(-600, 1400, 0);
+        ofScale(3, -6, -2);
         
-        const std::size_t MAX_BUFFER_SIZE2 = 100;
-
-        // This section fills the buffer.
-        if (vecCopy.size() < MAX_BUFFER_SIZE2)
-        {
-            vecCopy.push_back(temp_pos);
-            nextIndexToWrite2 = vecCopy.size();
-        }
-        else // This section reuses positions once it is full.
-        {
-            vecCopy[nextIndexToWrite2] = temp_pos;
-        }
-
-        // This section figures out the next write index and
-        nextIndexToWrite2 = (nextIndexToWrite2 + 1) % MAX_BUFFER_SIZE2;
-        
-//        int numb_shapes2=500;
-//        int Numb_delete2=10;
-        
-        //translating and scaling the triangles to be aroung the person as well as being large.
-        ofTranslate(-2200, 2500, 600);
-        ofScale(8, -8, -8);
         if (vec.size()>4) //if there is something in the vector.
         {
             for (int r=0; r<vec.size()-4; r++)
@@ -399,6 +395,7 @@ void ofApp::drawShapes()
                 //ofDrawCircle(vec[r].x-400,vec[r].y-400,10);
                 
                 ofNoFill();
+               
                 int k=vec.size()-1;
                 float value=255.0/max(vec[k].x,vec[k].y); // Code to find the max of x and y points and map it to 0-255 for some color.
                 //ofSetColor(uint8(value*vec[k].x), uint8(value*vec[k].y),uint8(value*vec[k].z)); //Rainbow
@@ -408,138 +405,78 @@ void ofApp::drawShapes()
                 //Am not doing it with z value because I am having a hard time figuring out the z value as in tracking the depth fo the person and using that for the current z value. This is an interesting thing that I want to figure out.
                 ofSetColor(ofRandom(0,255), uint8(value*vec[k].y),uint8(value*vec[k].x)); //Blue
                 
+                
                 //ofTranslate(-100, -100);
-                //ofDrawSphere(vec[r].x-500,vec[r].y-500,ofRandom(1000),10);
+               // ofDrawSphere(vec[r].x,vec[r].y,ofRandom(1000),10);
                 //ofDrawLine(vec[r].x,vec[r].y,vec[(r+1)].x,vec[(r+1)].y);
-                // ofDrawTriangle(vec[r].x,vec[r].y,ofRandom(200),vec[(r+1)].x,vec[(r+1)].y,ofRandom(100), vec[(r+2)].x,vec[(r+2)].y,ofRandom(-400));
                 
-                //Go through and draw a triangle from the current point on the vector to the next and then the next and just have set z values for them as I am nto tracking the depth of the person.
                 
-                ofJson pt;
-                pt["x"] = vec[r].x;
-                pt["y"]=vec[r].y;
-                pt["z"]=200;
-                stroke.push_back(pt);
-               
-               
+                 //ofDrawTriangle(vec[r].x,vec[r].y,ofRandom(200),vec[(r+1)].x,vec[(r+1)].y,ofRandom(100), vec[(r+2)].x,vec[(r+2)].y,ofRandom(-400));
                 
-                //cout<<stroke.size()<<endl;
                 
-                ofDrawTriangle(vec[r].x,vec[r].y,200,vec[(r+1)].x,vec[(r+1)].y,300, vec[(r+2)].x,vec[(r+2)].y,100);
+                /// If this is where you are sending you are sending A LOT of data
+                ///
+                ofxOscMessage m;
+                m.setAddress("Point");
+                m.addFloatArg(vec[r].x);
+                m.addFloatArg(vec[r].y);
+                m.addFloatArg(vec[r].z);
+                sender.sendMessage(m, false); // why set to false?
                 
+                
+               // cout<<m<<endl;
+               // ofDrawTriangle(vec[r].x,vec[r].y,200,vec[(r+1)].x,vec[(r+1)].y,300, vec[(r+2)].x,vec[(r+2)].y,100);
+                ofSetLineWidth(1);
+                
+         
+                
+            }
+        }
+      ofTranslate(100, 00);
+      
+      if (storage.size()>4) //if there is something in the vector.
+      {
+          for (int r=0; r<storage.size()-4; r++)
+          {
+              
+              ofSetColor(colCos.r, colCos.b, colCos.g);
+//              ofDrawSphere(storage[r].x, storage[r].y, storage[r].z,5);
+//              ofDrawLine(storage[r].x, storage[r].y, storage[r].z, storage[r+1].x, storage[r+1].y, storage[r+1].z );
+              
+              //ofDrawSphere(storage[r].x, storage[r].y,700,5);
+              
+            
+              // ofNoFill();
+              //storage[r].z=ofMap(storage[r].z,0,1800,0,10);
+             // cout<<storage[r].z<<endl;
+
+              //ofDrawTriangle(storage[r].x, storage[r].y, storage[r].z, storage[r+1].x, storage[r+1].y, storage[r+1].z,storage[r+2].x, storage[r+2].y, storage[r+2].z);
+              
+             ofDrawTriangle(storage[r].x, storage[r].y, 800, storage[r+1].x, storage[r+1].y, 900,storage[r+2].x, storage[r+2].y, 850);
              
-                
-            }
-        }
-       // cout<<vecCopy.size()<<endl;
-       
-        ofTranslate(0,-200,0);
-        if (vecCopy.size()>4) //if there is something in the vector.
-        {
-
-            for (int r=0; r<vecCopy.size()-4; r++)
-            {
-                if (ofGetElapsedTimef()>10.0)
-                {
-
-//                    ofScale(8, -8, -8);
-                    ofNoFill();
-                    int k=vecCopy.size()-1;
-                    float value=255.0/max(vecCopy[k].x,vecCopy[k].y);
-                     ofSetColor(ofRandom(0,255), uint8(value*vecCopy[k].y),uint8(value*vecCopy[k].x)); //Blue
-                     ofDrawTriangle(vecCopy[r].x,vecCopy[r].y,200,vecCopy[(r+1)].x,vecCopy[(r+1)].y,300, vecCopy[(r+2)].x,vecCopy[(r+2)].y,100);
-                }
-            }
-        }
-    }
+              
+          }
+          
+      }
+   
+}
     
   
 
 
 else//if not drawing anything then clear the vectors.
-{
-  
-    vec.clear();
-    
-    vecCopy.clear();
-}
+    {
+      
+        vec.clear();
+        
+        vecCopy.clear();
+    }
 }
         //Code to fill the vector based on the person.
         
         
         
-        //Set size of vector array have a current index instead of vector overwriting existing value
-        //need to iterate background until index -- go through full index
-//        for(int i=0; i<contourFinder.size(); i++)
-//        {
-//            //Should only be ran one time right at the beginning
-//            if (vec.empty())
-//            {
-//                vec.clear();
-//                vec.push_back(ofVec3f(0,0,0));
-//            }
-//
-//            for (int i=vec.size(); i>vec.size(); i--)
-//            {
-//                if (vec.size()-1>=numb_shapes)//I will erase from the beginning of the vector
-//                {
-//                    vec[i+1]=vec[0];
-//                     cout<<vec[0]<<endl;
-//                    //vec.erase(vec.begin());
-//                }
-//            }
-//            //cout<<vec.size()<<endl;
-//
-//            ofPoint center = toOf(contourFinder.getCenter(i));
-//
-//            for(int j=vec.size()-1; j<numb_shapes; j++)
-//            {
-//                //go through and push back to the vector based on the center of the contour. This only works well really with one person in the frame, which I might need to go through and update later on.
-//                ofVec2f temp_pos;
-//                temp_pos.x=center.x;
-//                temp_pos.y=center.y;
-//                vec.push_back(temp_pos);
-//
-//                //cout<<vec.size()<<endl;
-//
-//                if (vec.size()>4) //if there is something in the vector.
-//                {
-//                    for (int r=0; r<vec.size()-4; r++)
-//                    {
-//                        //ofDrawCircle(vec[r].x-400,vec[r].y-400,10);
-//
-//                        ofNoFill();
-//                        int k=vec.size()-1;
-//                        float value=255.0/max(vec[k].x,vec[k].y); // Code to find the max of x and y points and map it to 0-255 for some color.
-//                        //ofSetColor(uint8(value*vec[k].x), uint8(value*vec[k].y),uint8(value*vec[k].z)); //Rainbow
-//                        //ofSetColor(uint8(value*vec[k].x), ofRandom(0,100),0); //RED
-//
-//                        //randomize the first value and then use the other two values to set the color.
-//                        //Am not doing it with z value because I am having a hard time figuring out the z value as in tracking the depth fo the person and using that for the current z value. This is an interesting thing that I want to figure out.
-//                        ofSetColor(ofRandom(0,255), uint8(value*vec[k].y),uint8(value*vec[k].x)); //Blue
-//
-//                        //ofTranslate(-100, -100);
-//                        //ofDrawSphere(vec[r].x-500,vec[r].y-500,ofRandom(1000),10);
-//                        //ofDrawLine(vec[r].x,vec[r].y,vec[(r+1)].x,vec[(r+1)].y);
-//                        // ofDrawTriangle(vec[r].x,vec[r].y,ofRandom(200),vec[(r+1)].x,vec[(r+1)].y,ofRandom(100), vec[(r+2)].x,vec[(r+2)].y,ofRandom(-400));
-//
-//                        //Go through and draw a triangle from the current point on the vector to the next and then the next and just have set z values for them as I am nto tracking the depth of the person.
-//
-//                        ofDrawTriangle(vec[r].x,vec[r].y,200,vec[(r+1)].x,vec[(r+1)].y,300, vec[(r+2)].x,vec[(r+2)].y,100);
-//
-//                    }
-//                }
-//
-//            }
-//
-//        }
-//    }
-//
-//    else//if not drawing anything then clear the vectors.
-//        {
-//            vec.clear();
-//            vecCopy.clear();
-//        }
+
 
 
 
@@ -551,46 +488,101 @@ void ofApp::drawPointCloud()//all the code for the body is currently a mesh of t
     mesh.enableColors();
     
     ofBackground(0);
-    float connectionDistance = 20; //connectionDistance = 45 //Triangles:25
-    float farDistance=500;
-    mesh.setMode(OF_PRIMITIVE_TRIANGLES);
+    
+   // float connectionDistance = 20; //connectionDistance = 45 //Triangles:25
+   float connectionDistance = 20;
+   
+    //float farDistance=500;
+    
+   // mesh.setMode(OF_PRIMITIVE_POINTS);
+    
+//    if(meshMode<7)
+//    {
+//         mesh.setMode(OF_PRIMITIVE_POINTS);
+//    }
+//
+//    else if(meshMode>=7&&meshMode<=14)
+//    {
+//        mesh.setMode(OF_PRIMITIVE_LINES);
+//    }
+//    else if(meshMode>=14&&meshMode<=20)
+//    {
+//       mesh.setMode(OF_PRIMITIVE_TRIANGLES);
+//    }
+//    else if(meshMode>=15&&meshMode<=20)
+//    {
+//         mesh.setMode(OF_PRIMITIVE_TRIANGLE_FAN);
+//    }
+    
+
     
     int step = 7; //Lines=7
     for(int y = 0; y < h; y += step) {
         for(int x = 0; x < w; x += step) {//Adding vertexes as well as setting colors from the update code based on the depth values of the person.
-            if(kinect.getDistanceAt(x, y) > 800 && kinect.getDistanceAt(x, y)< 1400) {
+            if(kinect.getDistanceAt(x, y) > mainThresh1 && kinect.getDistanceAt(x, y)< mainThresh2) {
                 
                 mesh.addVertex(kinect.getWorldCoordinateAt(x, y));
+               // cout<<kinect.getDistanceAt(x, y)<<endl;
                 
-                if(kinect.getDistanceAt(x, y) > 800 && kinect.getDistanceAt(x, y)< 1000)
+                if(kinect.getDistanceAt(x, y) > colThresh1 && kinect.getDistanceAt(x, y)< colThresh2)
                 {
                     //ofSetColor(0,255,0);
                     mesh.addColor(col);
-                    
-                }
-                else if(kinect.getDistanceAt(x, y) > 1000 && kinect.getDistanceAt(x, y)< 1200)
-                {
-                    mesh.addColor(col2);
-                }
-                else if(kinect.getDistanceAt(x, y) > 1200 && kinect.getDistanceAt(x, y)< 1400)
-                {
-                    mesh.addColor(col3);
+                   // mesh.setMode(OF_PRIMITIVE_POINTS);
                 }
                 
-                else if(kinect.getDistanceAt(x, y) > 1100 && kinect.getDistanceAt(x, y)< 1200)
+                else if(kinect.getDistanceAt(x, y) > colThresh2 && kinect.getDistanceAt(x, y)< colThresh3)
+                {
+                    mesh.addColor(col2);
+                   // mesh.setMode(OF_PRIMITIVE_LINES);
+                    
+                }
+                else if(kinect.getDistanceAt(x, y) > colThresh3 && kinect.getDistanceAt(x, y)< colThresh4)
+                {
+                    mesh.addColor(col3);
+                      // mesh.setMode(OF_PRIMITIVE_TRIANGLES);
+                }
+                
+                else if(kinect.getDistanceAt(x, y) > colThresh5 && kinect.getDistanceAt(x, y)< colThresh3)
                 {
                     mesh.addColor(col4);
+                     // mesh.setMode(OF_PRIMITIVE_TRIANGLE_STRIP);
                 }
-                else if(kinect.getDistanceAt(x, y) > 1200 && kinect.getDistanceAt(x, y)< 1400)
+                else if(kinect.getDistanceAt(x, y) > colThresh3 && kinect.getDistanceAt(x, y)< colThresh4)
                 {
                     mesh.addColor(col5);
+                    //mesh.setMode(OF_PRIMITIVE_TRIANGLE_FAN);
                 
                 }
             }
         }
     }
+    //cout<<tempReciever.z<<endl;
     
-    glPointSize(6);
+    if (tempReciever.z<thresh1)
+    {
+        mesh.setMode(OF_PRIMITIVE_POINTS);
+    }
+    else  if (tempReciever.z>thresh1 && tempReciever.z<thresh2)
+    {
+        mesh.setMode(OF_PRIMITIVE_POINTS);
+    }
+    else  if (tempReciever.z>thresh2 && tempReciever.z<thresh3)
+    {
+        mesh.setMode(OF_PRIMITIVE_LINES);
+    }
+    else  if (tempReciever.z>thresh3 && tempReciever.z<thresh4)
+    {
+        mesh.setMode(OF_PRIMITIVE_TRIANGLES);
+    }
+    else  if (tempReciever.z>thresh4 && tempReciever.z<thresh5)
+    {
+        mesh.setMode(OF_PRIMITIVE_TRIANGLE_FAN);
+    }
+    
+    //glPointSize(5+pointSize);
+    glPointSize(3+tempArea);
+    
     ofPushMatrix();
     // the projected points are 'upside down' and 'backwards'
     ofScale(1, -1, -1);
@@ -612,26 +604,34 @@ void ofApp::drawPointCloud()//all the code for the body is currently a mesh of t
                 // connected to form a line
                 mesh.addIndex(a);
                 mesh.addIndex(b);
-                // mesh.addIndex(c);
+                
             }
             // }
             
         }
     }
-    //Code to see if I could get the person to rotate but is to no avail yet.
-//    meshCentroid = mesh.getCentroid();
-//    for (int i=0; i<numVerts; ++i) {
-//        ofVec3f vert = mesh.getVertex(i);
-//        float distance = vert.distance(meshCentroid);
-//        float angle = atan2(vert.y-meshCentroid.y, vert.x-meshCentroid.x);
-//        distances.push_back(distance);
-//        angles.push_back(angle);
-    //}
     
-    // mesh.drawVertices();
+    ofTranslate(-200,0,0);
     mesh.draw();
     ofDisableDepthTest();
     ofPopMatrix();
+    
+    if(tempSize>1)
+    {
+        
+        ofScale(1,-1,-1);
+        
+        for(int i=0; i<tempSize;i++)
+        {
+            ofTranslate(600+i,0, 0);
+            mesh.draw();
+            ofDisableDepthTest();
+            ofPopMatrix();
+        }
+    }
+    
+    
+
 }
 
 void ofApp::exit() {
@@ -726,7 +726,7 @@ void ofApp::keyPressed(int key){ //Kep pressed booleans and some code for thresh
             
         case 'b':
             drawStuff=!drawStuff;
-             startOrbitTime = ofGetElapsedTimef();
+             //startOrbitTime = ofGetElapsedTimef();
             
         case 'v':
             clearStuff=!clearStuff;
@@ -739,11 +739,11 @@ void ofApp::keyPressed(int key){ //Kep pressed booleans and some code for thresh
         case 'x':
             drawBackground=!drawBackground;
        
-        case's':
-            ofSaveJson("drawing copy.json", js);
-            js.push_back(stroke);
-            stroke.clear();
-            cout<<"saved"<<endl;
+       // case's':
+//            ofSaveJson("drawing copy.json", js);
+//            js.push_back(stroke);
+//            stroke.clear();
+//            cout<<"saved"<<endl;
     }
     
 }
